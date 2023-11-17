@@ -83,27 +83,22 @@ class Sultan(Base):
 
         # initial checks
         if ssh_config and not isinstance(ssh_config, SSHConfig):
-            msg = "The config passed (%s) must be an instance of SSHConfig." % \
-                ssh_config
+            msg = f"The config passed ({ssh_config}) must be an instance of SSHConfig."
             raise ValueError(msg)
 
         if src and not os.path.exists(src):
-            raise IOError("The Source File provided (%s) does not exist" % src)
+            raise IOError(f"The Source File provided ({src}) does not exist")
 
-        context = {}
-        context['cwd'] = cwd
-        context['sudo'] = sudo
-        context['hostname'] = hostname
-        context['ssh_config'] = str(ssh_config) if ssh_config else ''
-        context['env'] = env or None # must be None, for Python to get the current process's env.
-        context['logging'] = logging
-        context['src'] = src
-
-        # determine user
-        if user:
-            context['user'] = user
-        else:
-            context['user'] = getpass.getuser()
+        context = {
+            'cwd': cwd,
+            'sudo': sudo,
+            'hostname': hostname,
+            'ssh_config': str(ssh_config) if ssh_config else '',
+            'env': env or None,
+            'logging': logging,
+            'src': src,
+            'user': user if user else getpass.getuser(),
+        }
         context.update(kwargs)
 
         return cls(context=context)
@@ -169,16 +164,15 @@ class Sultan(Base):
 
         if name == "redirect":
             return Redirect(self, name)
-        else:
-            # When calling Bash Commands from Python with Sultan, we encounter
-            # an issue where the Python doesn't allow special characters like 
-            # dashes (i.e.: apt-get). To get around this, we will use 2 
-            # underscores one after another to indicate that we want it to be a
-            # dash, and replace it accordingly before calling Command
-            name = name.replace('__', '-')
+        # When calling Bash Commands from Python with Sultan, we encounter
+        # an issue where the Python doesn't allow special characters like 
+        # dashes (i.e.: apt-get). To get around this, we will use 2 
+        # underscores one after another to indicate that we want it to be a
+        # dash, and replace it accordingly before calling Command
+        name = name.replace('__', '-')
 
-            # call Command()
-            return Command(self, name)
+        # call Command()
+        return Command(self, name)
 
     def run(self, halt_on_nonzero=True, quiet=False, q=False):
         """
@@ -186,7 +180,7 @@ class Sultan(Base):
         """
 
         commands = str(self)
-        if not (quiet or q):
+        if not quiet and not q:
             self._echo.cmd(commands)
 
         stdout, stderr = None, None
@@ -207,13 +201,13 @@ class Sultan(Base):
 
             if result.stderr:
                 result.print_stderr()
-                
+
             return result
 
         except Exception:
             tb = traceback.format_exc().split("\n")
 
-            self._echo.critical("Unable to run '%s'" % commands)
+            self._echo.critical(f"Unable to run '{commands}'")
             result = Result(stdout, stderr, traceback=tb)
 
             #  traceback
@@ -226,11 +220,6 @@ class Sultan(Base):
             # standard error
             if result.stderr:
                 result.print_stderr()
-
-            # halt on error if it is requested
-            if self.settings.HALT_ON_ERROR:
-                if halt_on_nonzero:
-                    raise
 
             if halt_on_nonzero:
                 raise
@@ -267,30 +256,21 @@ class Sultan(Base):
 
             if (i == 0):
                 separator = ""
+            elif isinstance(cmd, SPECIAL_CASES):
+                separator = " "
             else:
-                if isinstance(cmd, SPECIAL_CASES):
-                    separator = " "
-                else:
-                    if isinstance(self.commands[i - 1], SPECIAL_CASES):
-                        separator = " "
-                    else:
-                        separator = "; "
-
+                separator = " " if isinstance(self.commands[i - 1], SPECIAL_CASES) else "; "
             cmd_str = str(cmd)
             output += separator + cmd_str
 
-        output = output.strip() + ";"
+        output = f"{output.strip()};"
 
-        # update with 'cwd' context
-        cwd = context.get('cwd')
-        if cwd:
-            prepend = "cd %s && " % (cwd)
+        if cwd := context.get('cwd'):
+            prepend = f"cd {cwd} && "
             output = prepend + output
 
-        # update with 'src' context
-        src = context.get('src')
-        if src:
-            prepend = "source %s && " % (src)
+        if src := context.get('src'):
+            prepend = f"source {src} && "
             output = prepend + output
 
         # update with 'sudo' context
@@ -298,21 +278,20 @@ class Sultan(Base):
         user = context.get('user')
         if sudo:
             if user != getpass.getuser():
-                output = "sudo su - %s -c '%s'" % (user, output)
+                output = f"sudo su - {user} -c '{output}'"
             elif getpass.getuser() == 'root':
-                output = "su - %s -c '%s'" % (user, output)
+                output = f"su - {user} -c '{output}'"
             else:
-                output = "sudo %s" % (output)
+                output = f"sudo {output}"
 
         # if we have to ssh, prepare for the SSH command
         ssh_config = context.get('ssh_config')
-        hostname = context.get('hostname')
-        if hostname:
+        if hostname := context.get('hostname'):
             params = {
                 'user': user,
                 'hostname': hostname,
-                'command': output, 
-                'ssh_config': ' %s ' % ssh_config if ssh_config else ' '
+                'command': output,
+                'ssh_config': f' {ssh_config} ' if ssh_config else ' ',
             }
             output = "ssh%(ssh_config)s%(user)s@%(hostname)s '%(command)s'" % (params)
 
@@ -398,17 +377,19 @@ class Command(BaseCommand):
         if 'where' in kwargs:
             where = kwargs.pop('where')
             if not os.path.exists(where):
-                raise IOError("The value for 'where' (%s), for '%s' does not exist." % (where, self.command))
+                raise IOError(
+                    f"The value for 'where' ({where}), for '{self.command}' does not exist."
+                )
 
             cmd = os.path.join(where, self.command)
             if not os.path.exists(cmd):
-                raise IOError("Command '%s' does not exist in '%s'." % (cmd, where))
+                raise IOError(f"Command '{cmd}' does not exist in '{where}'.")
 
             self.command = os.path.join(where, cmd)
 
         if "sudo" in kwargs:
             kwargs.pop("sudo")
-            self.command = "sudo " + self.command
+            self.command = f"sudo {self.command}"
 
         self.args = [str(a) for a in args]
         self.kwargs = kwargs
@@ -423,19 +404,16 @@ class Command(BaseCommand):
 
             key = None
             value = v
-            if len(k) == 1:
-                key = "-%s" % k
-            else:
-                key = "--%s" % k
-            kwargs_list.append("%s=%s" % (key, value))
+            key = f"-{k}" if len(k) == 1 else f"--{k}"
+            kwargs_list.append(f"{key}={value}")
         kwargs_str = " ".join(kwargs_list).strip()
 
         # prep and return the output
         output = self.command
-        if len(kwargs_str) > 0:
-            output += " " + kwargs_str
-        if len(args_str) > 0:
-            output += " " + args_str
+        if kwargs_str != "":
+            output += f" {kwargs_str}"
+        if args_str != "":
+            output += f" {args_str}"
 
         return output
 
@@ -488,16 +466,15 @@ class Redirect(BaseCommand):
         descriptor = None
         if stdout and stderr:
             descriptor = "&"
+        elif stdout:
+            descriptor = "1"
+        elif stderr:
+            descriptor = "2"
         else:
-            if stdout and not stderr:
-                descriptor = "1"
-            elif stderr and not stdout:
-                descriptor = "2"
-            else:
-                raise ValueError("You chose redirect to stdout and stderr to be false. This is not valid.")
+            raise ValueError("You chose redirect to stdout and stderr to be false. This is not valid.")
 
-        descriptor = descriptor + ">" + (">" if append else "")
-        self.command = "%s %s" % (descriptor, to_file)
+        descriptor = f"{descriptor}>" + (">" if append else "")
+        self.command = f"{descriptor} {to_file}"
         self.sultan._add(self)
         return self.sultan
 
@@ -520,9 +497,7 @@ class Config(object):
         for key, value in self.config.items():
 
             shorthand = self.params_map[key]['shorthand']
-            output.append(shorthand)
-            output.append(str(value))
-            
+            output.extend((shorthand, str(value)))
         return ' '.join(output)
 
     def validate_config(self):
@@ -535,12 +510,14 @@ class Config(object):
             if key_config['required']:
                 if key not in self.config:
                     raise ValueError("Invalid Configuration! Required parameter '%s' was not provided to Sultan.")
-        
+
         # second ensure that the fields that were pased were actually fields that
         # can be used
         for key in self.config.keys():
             if key not in self.params_map:
-                raise ValueError("Invalid Configuration! The parameter '%s' provided is not used by Sultan!" % key)
+                raise ValueError(
+                    f"Invalid Configuration! The parameter '{key}' provided is not used by Sultan!"
+                )
 
 
 

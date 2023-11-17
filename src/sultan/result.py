@@ -20,7 +20,7 @@ class Result(Base):
 
     def __format_line(self, msg):
 
-        return '| %s' % msg
+        return f'| {msg}'
 
     def __format_lines(self, lines):
 

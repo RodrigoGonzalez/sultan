@@ -43,8 +43,7 @@ class ColoredRecord(object):
             try:
                 return parse_colors(name)
             except Exception:
-                raise KeyError("{} is not a valid record attribute "
-                               "or color sequence".format(name))
+                raise KeyError(f"{name} is not a valid record attribute or color sequence")
 
     def __init__(self, record):
         # Replace the internal dict with one that can handle missing keys
@@ -123,7 +122,7 @@ class ColoredFormatter(logging.Formatter):
         if self.secondary_log_colors:
             for name, log_colors in list(self.secondary_log_colors.items()):
                 color = self.color(log_colors, record.levelname)
-                setattr(record, name + '_log_color', color)
+                setattr(record, f'{name}_log_color', color)
 
         # Format the message
         if sys.version_info > (2, 7):
@@ -187,13 +186,13 @@ class LevelFormatter(ColoredFormatter):
                 # Update self._style because we've changed self._fmt
                 # (code based on stdlib's logging.Formatter.__init__())
                 if self.style not in logging._STYLES:
-                    raise ValueError('Style must be one of: %s' % ','.join(
-                        list(logging._STYLES.keys())))
+                    raise ValueError(
+                        f"Style must be one of: {','.join(list(logging._STYLES.keys()))}"
+                    )
                 self._style = logging._STYLES[self.style][0](self._fmt)
 
-        if sys.version_info > (2, 7):
-            message = super(LevelFormatter, self).format(record)
-        else:
-            message = ColoredFormatter.format(self, record)
-
-        return message
+        return (
+            super(LevelFormatter, self).format(record)
+            if sys.version_info > (2, 7)
+            else ColoredFormatter.format(self, record)
+        )
