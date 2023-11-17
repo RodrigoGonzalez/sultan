@@ -25,7 +25,7 @@ def assert_log_message(log_function, message, capsys):
 
 @pytest.fixture()
 def reset_loggers():
-    logging.root.handlers = list()
+    logging.root.handlers = []
     logging.root.setLevel(logging.DEBUG)
 
 

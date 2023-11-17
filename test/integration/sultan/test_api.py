@@ -21,7 +21,8 @@ class SultanCreateFileTestCase(unittest.TestCase):
         s.clear()
         self.assertEqual(
             str(s.echo("'ls -lah /tmp'").redirect(self.path, stdout=True)),
-            "echo 'ls -lah /tmp' 1> %s;" % self.path)
+            f"echo 'ls -lah /tmp' 1> {self.path};",
+        )
 
         s.run()
         with open(self.path) as f:

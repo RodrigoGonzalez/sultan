@@ -282,20 +282,26 @@ class SultanTestCase(unittest.TestCase):
         # with no username specified
         with Sultan.load(hostname='google.com') as sultan:
             user = getpass.getuser()
-            self.assertEqual(str(sultan.ls("-lah", "/home")),
-                             "ssh %s@google.com 'ls -lah /home;'" % user)
+            self.assertEqual(
+                str(sultan.ls("-lah", "/home")),
+                f"ssh {user}@google.com 'ls -lah /home;'",
+            )
 
         # local user
         with Sultan.load(hostname='google.com', user=getpass.getuser()) as sultan:
             user = getpass.getuser()
-            self.assertEqual(str(sultan.ls("-lah", "/home")),
-                             "ssh %s@google.com 'ls -lah /home;'" % user)
+            self.assertEqual(
+                str(sultan.ls("-lah", "/home")),
+                f"ssh {user}@google.com 'ls -lah /home;'",
+            )
 
         # different user
         with Sultan.load(hostname='google.com', user="obama") as sultan:
             user = "obama"
-            self.assertEqual(str(sultan.ls("-lah", "/home")),
-                             "ssh %s@google.com 'ls -lah /home;'" % user)
+            self.assertEqual(
+                str(sultan.ls("-lah", "/home")),
+                f"ssh {user}@google.com 'ls -lah /home;'",
+            )
 
         # different user as sudo
         with Sultan.load(hostname='google.com', user="obama", sudo=True) as sultan:
@@ -338,8 +344,9 @@ class SultanTestCase(unittest.TestCase):
 
             with Sultan.load(src=filepath) as s:
                 self.assertEqual(
-                    str(s.yum('install', 'apache')), 
-                    'source %s && yum install apache;' % filepath)
+                    str(s.yum('install', 'apache')),
+                    f'source {filepath} && yum install apache;',
+                )
         finally:
             if os.path.exists(filepath):
                 os.unlink(filepath)
@@ -351,8 +358,9 @@ class SultanTestCase(unittest.TestCase):
 
             with Sultan.load(cwd='/tmp', src=filepath) as s:
                 self.assertEqual(
-                    str(s.yum('install', 'apache')), 
-                    'source %s && cd /tmp && yum install apache;' % filepath)
+                    str(s.yum('install', 'apache')),
+                    f'source {filepath} && cd /tmp && yum install apache;',
+                )
         finally:
             if os.path.exists(filepath):
                 os.unlink(filepath)

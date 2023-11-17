@@ -34,7 +34,7 @@ class Settings(Base):
         try:
             return self._settings[attr]
         except KeyError:
-            raise ValueError("Invalid Setting '%s'." % (attr))
+            raise ValueError(f"Invalid Setting '{attr}'.")
 
 
 settings = Settings()
